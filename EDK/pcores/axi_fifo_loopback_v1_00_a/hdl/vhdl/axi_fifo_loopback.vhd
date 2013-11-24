@@ -78,6 +78,7 @@ entity axi_fifo_loopback is
 	(
 	  IN1 : in std_logic_vector(3 downto 0);
 	  OUT1 : out std_logic_vector(3 downto 0);
+	  EXTERN_CLK : in std_logic;
 		-- DO NOT EDIT BELOW THIS LINE ---------------------
 		-- Bus protocol ports, do not add or delete. 
 		ACLK	: in	std_logic;
@@ -134,6 +135,23 @@ architecture EXAMPLE of axi_fifo_loopback is
    signal fifo_m_axis_tdata   : STD_LOGIC_VECTOR(31 DOWNTO 0);
    signal fifo_m_axis_tlast   : STD_LOGIC;
    
+   signal sending         : std_logic;
+   signal last_out        : std_logic;
+   
+   -- The following signals are synchronous to the EXTERN_CLK
+   
+   -- signals for triggering a packet send
+   signal trigger         : std_logic;
+   signal sending_r       : std_logic;
+   signal sending_r1      : std_logic;
+   
+   -- signals for counter
+   signal count          : std_logic_vector(31 downto 0);
+   signal last           : std_logic;
+   signal valid          : std_logic;
+   
+   -- clock and reset
+   signal resetn         : std_logic;
    
 begin
 
@@ -152,19 +170,92 @@ begin
       m_axis_tlast  => fifo_m_axis_tlast
     );
     
+    --------------------------------------------------------------
     -- Master FIFO interface
+    --------------------------------------------------------------
+    -- Connects directly to the peripheral's AXI master interface
     fifo_m_aclk         <= ACLK;
 	  M_AXIS_TVALID       <= fifo_m_axis_tvalid;
     fifo_m_axis_tready  <= M_AXIS_TREADY;
 	  M_AXIS_TDATA        <= fifo_m_axis_tdata;
 	  M_AXIS_TLAST        <= fifo_m_axis_tlast;
     
-    -- Slave FIFO interface to AXI bus master interface
-    fifo_s_aclk         <= ACLK;
+	  -- last data out triggers "ready for another transfer"
+	  last_out <= fifo_m_axis_tlast and fifo_m_axis_tready and fifo_m_axis_tvalid;
+	  
+  -- Sending signal indicates loading a packet into FIFO
+  process (ACLK) begin
+    if (rising_edge(ACLK)) then
+      if (ARESETN = '0') then
+        sending <= '0';
+      -- set when TREADY
+      elsif sending = '0' and S_AXIS_TVALID = '1' then
+        sending <= '1';
+      -- reset when last data out
+      elsif last_out = '1' then
+        sending <= '0';
+      end if;
+    end if;
+  end process;
+  
+  -- Clock domain crossing
+  process (EXTERN_CLK) begin
+    if (rising_edge(EXTERN_CLK)) then
+      if (resetn = '0') then
+        sending_r <= '0';
+        sending_r1 <= '0';
+      else
+        sending_r <= sending;
+        sending_r1 <= sending_r;
+      end if;
+    end if;
+  end process;
+  
+  trigger <= '1' when sending_r = '1' and sending_r1 = '0' else '0';
+  
+  -- Reset clock domain crossing
+  process (EXTERN_CLK) begin
+    if (rising_edge(EXTERN_CLK)) then
+      if (ARESETN = '0') then
+        resetn <= '0';
+      else
+        resetn <= ARESETN;
+      end if;
+    end if;
+  end process;
+  
+  -- Counter and FIFO feeder
+  process (EXTERN_CLK) begin
+    if (rising_edge(EXTERN_CLK)) then
+      if (resetn = '0') then
+        count <= (others => '0');
+        valid <= '0';
+      elsif trigger = '1' then
+        count <= (others => '0');
+        valid <= '1';
+      elsif last = '1' then
+        count <= (others => '0');
+        valid <= '0';
+      else
+        count <= std_logic_vector( unsigned(count) + 1 );
+      end if;
+    end if;
+  end process;
+
+  last <= '1' when count = std_logic_vector( to_unsigned(199999,32) ) else '0';
+  
+    -- Slave FIFO interface
+    fifo_s_aclk         <= EXTERN_CLK;
     fifo_s_aresetn      <= ARESETN;
-    fifo_s_axis_tvalid  <= S_AXIS_TVALID;
-	  S_AXIS_TREADY       <= fifo_s_axis_tready;
-    fifo_s_axis_tdata   <= S_AXIS_TDATA;
-    fifo_s_axis_tlast   <= S_AXIS_TLAST;
+    fifo_s_axis_tvalid  <= valid;
+    fifo_s_axis_tdata   <= count;
+    fifo_s_axis_tlast   <= last;
     
+    --------------------------------------------------------------------
+    -- Slave AXI interface
+    --------------------------------------------------------------------
+    -- Writes to this interface are ignored except for the TLAST signal
+    -- which is used to trigger a packet write into the FIFO
+	  S_AXIS_TREADY       <= '1';  -- always ready to receive AXI command
+
 end architecture EXAMPLE;

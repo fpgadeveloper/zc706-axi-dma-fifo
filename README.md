@@ -3,6 +3,8 @@ zc706-axi-dma-fifo
 
 Example project that uses the AXI DMA peripheral to connect a custom AXI-Stream peripheral to memory
 
+### Description
+
 This type of design is typical for applications where there is a data source that constantly generates
 data (for example, an ADC) and we wish to store this data in a memory mapped storage device (for example
 SDRAM). The design can also be used for the reverse case, where we have data in memory and we would like
@@ -16,10 +18,21 @@ address of the data to send.
 The custom AXI-Stream peripheral has one master and one slave AXI-Stream port and contains an AXI-Stream
 FIFO. The data pushed into the slave interface can then be read out of the master interface.
 
+### License
+
 Feel free to modify the custom AXI-Stream peripheral for your specific application.
 
-If you port this project to another hardware platform, please send me the code or push it onto GitHub and
-send me the link so I can post it on my website. The more people that benefit, the better.
+### Fork and share
+
+If you port this project to another hardware platform, please send me the
+code or push it onto GitHub and send me the link so I can post it on my
+website. The more people that benefit, the better.
+
+### About the author
+
+I'm an FPGA consultant and I provide FPGA design services and training to
+innovative companies around the world. I believe in sharing knowledge and
+I regularly contribute to the open source community.
 
 Jeff Johnson
-fpgadeveloper.com
+http://www.fpgadeveloper.com

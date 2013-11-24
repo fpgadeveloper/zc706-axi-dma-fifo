@@ -49,7 +49,7 @@
 #define RX_BUFFER_BASE		(MEM_BASE_ADDR + 0x00300000)
 #define RX_BUFFER_HIGH		(MEM_BASE_ADDR + 0x004FFFFF)
 
-#define MAX_PKT_LEN_WORDS	8
+#define MAX_PKT_LEN_WORDS	200000
 #define MAX_PKT_LEN			MAX_PKT_LEN_WORDS*4
 
 #define TEST_START_VALUE	0xC
@@ -111,7 +111,7 @@ int XAxiDma_SimplePollExample(u16 DeviceId)
 	XAxiDma_Config *CfgPtr;
 	int Status;
 	int Tries = NUMBER_OF_TRANSFERS;
-	int Index;
+	u32 Index;
 	u32 *TxBufferPtr;
 	u32 *RxBufferPtr;
 	u32 Value;
@@ -151,11 +151,14 @@ int XAxiDma_SimplePollExample(u16 DeviceId)
 			TxBufferPtr[Index] = Value;
 			Value++;
 	}
+
 	/* Flush the SrcBuffer before the DMA transfer, in case the Data Cache
 	 * is enabled
 	 */
 	Xil_DCacheFlushRange((u32)TxBufferPtr, MAX_PKT_LEN);
 
+	RxBufferPtr[MAX_PKT_LEN_WORDS-1] = MAX_PKT_LEN_WORDS-1;
+	xil_printf("Last RxBuffer value: %d\r\n",RxBufferPtr[MAX_PKT_LEN_WORDS-1]);
 	for(Index = 0; Index < Tries; Index ++) {
 
 
@@ -174,10 +177,9 @@ int XAxiDma_SimplePollExample(u16 DeviceId)
 		}
 
 		while (XAxiDma_Busy(&AxiDma,XAXIDMA_DMA_TO_DEVICE)) {
-				/* Wait */
 		}
+
 		while (XAxiDma_Busy(&AxiDma,XAXIDMA_DEVICE_TO_DMA)) {
-				/* Wait */
 		}
 
 		Status = CheckData();
@@ -211,19 +213,30 @@ int XAxiDma_SimplePollExample(u16 DeviceId)
 static int CheckData(void)
 {
 	u32 *RxPacket;
-	int Index = 0;
+	u32 Index = 0;
 
 	RxPacket = (u32 *) RX_BUFFER_BASE;
 
+	//RxPacket[MAX_PKT_LEN_WORDS-1] = MAX_PKT_LEN_WORDS-1;
 	/* Invalidate the DestBuffer before receiving the data, in case the
 	 * Data Cache is enabled
 	 */
 	Xil_DCacheInvalidateRange((u32)RxPacket, MAX_PKT_LEN);
 
-	xil_printf("Data received: ");
+	//xil_printf("Last RxBuffer value: %d\r\n",RxPacket[MAX_PKT_LEN_WORDS-1]);
+	//xil_printf("Data received: ");
 	for(Index = 0; Index < MAX_PKT_LEN_WORDS; Index++) {
+		if((Index >= 0) && (Index < 5))
+			xil_printf("%d ", (unsigned int)RxPacket[Index]);
+		if((Index >= MAX_PKT_LEN_WORDS-5) && (Index < MAX_PKT_LEN_WORDS))
+			xil_printf("%d ", (unsigned int)RxPacket[Index]);
+	}
+	/*
+	xil_printf("\r\nLast received: ");
+	for(Index = MAX_PKT_LEN_WORDS-5; Index < MAX_PKT_LEN_WORDS; Index++) {
 		xil_printf("0x%X ", (unsigned int)RxPacket[Index]);
 	}
+	*/
 	xil_printf("\r\n");
 
 	return XST_SUCCESS;
