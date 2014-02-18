@@ -18,6 +18,11 @@ address of the data to send.
 The custom AXI-Stream peripheral has one master and one slave AXI-Stream port and contains an AXI-Stream
 FIFO. The data pushed into the slave interface can then be read out of the master interface.
 
+### Requirements
+
+* ISE Design Suite 14.7
+* ZC706 Evaluation Board
+
 ### License
 
 Feel free to modify the custom AXI-Stream peripheral for your specific application.
